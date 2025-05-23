@@ -1103,6 +1103,7 @@ inline std::string json_parse(const std::string &s, const std::string &key,
 // ====================================================================
 //
 #include <cstdlib>
+#include <cstdint>
 
 #include <JavaScriptCore/JavaScript.h>
 #include <gtk/gtk.h>
@@ -1236,7 +1237,7 @@ constexpr auto webkit_web_view_run_javascript =
 class gtk_webkit_engine : public engine_base {
 public:
   gtk_webkit_engine(bool debug, void *window)
-      : m_owns_window{!window}, m_window(static_cast<GtkWidget *>(window)) {
+      : m_owns_window{!window || window == reinterpret_cast<void *>(static_cast<uintptr_t>(-1))}, m_window(static_cast<GtkWidget *>(window)) {
     if (m_owns_window) {
       if (gtk_init_check(nullptr, nullptr) == FALSE) {
         return;
@@ -1284,7 +1285,7 @@ public:
       webkit_settings_set_enable_developer_extras(settings, true);
     }
 
-    if (m_owns_window) {
+    if (m_owns_window && !window) {
       gtk_widget_grab_focus(GTK_WIDGET(m_webview));
       gtk_widget_show_all(m_window);
     }
@@ -1553,9 +1554,10 @@ inline id operator"" _str(const char *s, std::size_t) {
 
 class cocoa_wkwebview_engine : public engine_base {
 public:
-  cocoa_wkwebview_engine(bool debug, void *window)
-      : m_debug{debug}, m_window{static_cast<id>(window)}, m_owns_window{
-                                                               !window} {
+  cocoa_wkwebview_engine(bool debug, void *window) :
+      m_debug{debug},
+      m_window{static_cast<id>(window)}, m_owns_window{!window || window == reinterpret_cast<void *>(static_cast<uintptr_t>(-1))},
+      m_show{!window} {
     auto app = get_shared_application();
     // See comments related to application lifecycle in create_app_delegate().
     if (!m_owns_window) {
@@ -1917,7 +1919,7 @@ private:
 
     objc::msg_send<void>(m_window, "setContentView:"_sel, m_webview);
 
-    if (m_owns_window) {
+    if (m_show) {
       objc::msg_send<void>(m_window, "makeKeyAndOrderFront:"_sel, nullptr);
     }
   }
@@ -2048,6 +2050,7 @@ private:
   id m_webview{};
   id m_manager{};
   bool m_owns_window{};
+  bool m_show{};
 };
 
 } // namespace detail
@@ -2977,7 +2980,7 @@ private:
 
 class win32_edge_engine : public engine_base {
 public:
-  win32_edge_engine(bool debug, void *window) : m_owns_window{!window} {
+  win32_edge_engine(bool debug, void *window) : m_owns_window{!window || window == INVALID_HANDLE_VALUE} {
     if (!is_webview2_available()) {
       return;
     }
@@ -3077,7 +3080,7 @@ public:
       });
       RegisterClassExW(&wc);
 
-      CreateWindowW(L"webview", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
+      CreateWindowExW(window ? 0x08000000 : 0, L"webview", L"", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
                     CW_USEDEFAULT, 0, 0, nullptr, nullptr, hInstance, this);
       if (m_window == nullptr) {
         return;
@@ -3178,7 +3181,7 @@ public:
     CreateWindowExW(0, L"webview_message", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE,
                     nullptr, hInstance, this);
 
-    if (m_owns_window) {
+    if (m_owns_window && !window) {
       ShowWindow(m_window, SW_SHOW);
       UpdateWindow(m_window);
       SetFocus(m_window);

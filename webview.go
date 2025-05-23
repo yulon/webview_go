@@ -24,17 +24,19 @@ void CgoWebViewBind(webview_t w, const char *name, uintptr_t index);
 void CgoWebViewUnbind(webview_t w, const char *name);
 */
 import "C"
+
 import (
-	_ "github.com/webview/webview_go/libs/mswebview2"
-	_ "github.com/webview/webview_go/libs/mswebview2/include"
-	_ "github.com/webview/webview_go/libs/webview"
-	_ "github.com/webview/webview_go/libs/webview/include"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"runtime"
 	"sync"
 	"unsafe"
+
+	_ "github.com/yulon/webview_go/libs/mswebview2"
+	_ "github.com/yulon/webview_go/libs/mswebview2/include"
+	_ "github.com/yulon/webview_go/libs/webview"
+	_ "github.com/yulon/webview_go/libs/webview/include"
 )
 
 func init() {
@@ -145,6 +147,9 @@ func boolToInt(b bool) C.int {
 // New calls NewWindow to create a new window and a new webview instance. If debug
 // is non-zero - developer tools will be enabled (if the platform supports them).
 func New(debug bool) WebView { return NewWindow(debug, nil) }
+
+// New calls NewWindow to create a new hidden window and a new webview instance.
+func NewHidden() WebView { return NewWindow(false, unsafe.Pointer(^uintptr(0))) }
 
 // NewWindow creates a new webview instance. If debug is non-zero - developer
 // tools will be enabled (if the platform supports them). Window parameter can be
